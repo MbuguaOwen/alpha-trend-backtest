@@ -4,14 +4,36 @@ from dateutil.relativedelta import relativedelta
 
 @dataclass
 class WFSpec:
+    """Specification for walk-forward windows (in months)."""
+
     train_months: int
     test_months: int
     step_months: int
 
+
 def parse_wf(s: str) -> WFSpec:
-    # format: "train=3,test=1,step=1"
-    parts = dict([p.split("=") for p in s.split(",")])
-    return WFSpec(train_months=int(parts["train"]), test_months=int(parts["test"]), step_months=int(parts["step"]))
+    """Parse a walk-forward spec string.
+
+    The expected format is ``"train=3,test=1,step=1"``. Values must be
+    positive integers and ``step`` must be less than or equal to ``test``.
+    ``ValueError`` is raised on malformed input.
+    """
+
+    try:
+        parts = dict(p.split("=", 1) for p in s.split(","))
+        train = int(parts["train"])
+        test = int(parts["test"])
+        step = int(parts["step"])
+    except Exception as exc:
+        raise ValueError("walkforward must be like 'train=3,test=1,step=1'") from exc
+
+    for name, val in ("train", train), ("test", test), ("step", step):
+        if val <= 0:
+            raise ValueError(f"{name} must be positive")
+    if step > test:
+        raise ValueError("step must be <= test")
+
+    return WFSpec(train_months=train, test_months=test, step_months=step)
 
 def month_range(start_iso: str, end_iso: str):
     start = datetime.fromisoformat(start_iso.replace("Z",""))

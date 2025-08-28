@@ -1,11 +1,35 @@
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+from datetime import datetime, timezone
 from .data_loader import iter_symbol_bars
 from .adapters import load_regime_classifier, load_signal_engine, load_trade_manager, load_atr, load_position_sizer
 from .reporting import summarize_trades
 from .atr import ATR
+from tqdm.auto import tqdm
 
-def run_symbol(symbol: str, data_root: Path, start: Optional[str], end: Optional[str], cfg: dict, outputs_dir: Path, logger):
+def _to_epoch_iso(iso: Optional[str | int | float]) -> Optional[int]:
+    if iso is None:
+        return None
+    s = str(iso).strip()
+    if s.isdigit():
+        v = int(s)
+        return v // 1000 if v > 1_000_000_000_0 else v
+    dt = datetime.fromisoformat(s.replace("Z", ""))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return int(dt.timestamp())
+
+
+def run_symbol(
+    symbol: str,
+    data_root: Path,
+    start: Optional[str],
+    end: Optional[str],
+    cfg: dict,
+    outputs_dir: Path,
+    logger,
+    progress: bool = False,
+):
     # Instantiate engines (fallback or live)
     reg_mod, reg_fb = load_regime_classifier()
     sig_mod, sig_fb = load_signal_engine()
@@ -53,6 +77,23 @@ def run_symbol(symbol: str, data_root: Path, start: Optional[str], end: Optional
             "size": t.size,
         })
 
+    # Progress bar setup (per-bar)
+    start_ep = _to_epoch_iso(start) if start else None
+    end_ep = _to_epoch_iso(end) if end else None
+    total_bars: Optional[int] = None
+    if start_ep is not None and end_ep is not None:
+        total_bars = max(0, (end_ep - start_ep) // 60)
+    pbar = tqdm(
+        total=total_bars,
+        desc=f"{symbol} bars",
+        unit="bar",
+        leave=False,
+        dynamic_ncols=True,
+        disable=not progress,
+        mininterval=0.2,
+        smoothing=0.1,
+    )
+
     for bar in iter_symbol_bars(Path(data_root), symbol, start, end):
         ts = bar["timestamp"]; o=bar["open"]; h=bar["high"]; l=bar["low"]; c=bar["close"]
         cur_atr = atr.update(o,h,l,c)
@@ -78,6 +119,9 @@ def run_symbol(symbol: str, data_root: Path, start: Optional[str], end: Optional
                 pos = "FLAT"
 
         timeline_rows.append(f"{ts},{o},{h},{l},{c},{cur_atr or ''},{reg},{sig or ''},{pos},{tm.active.sl if tm.active else ''},{tm.active.tp if tm.active else ''}\n")
+        pbar.update(1)
+
+    pbar.close()
 
     # If trade still open, force-close at last price as BE
     if tm.active is not None:

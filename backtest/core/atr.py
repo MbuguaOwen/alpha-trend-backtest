@@ -1,12 +1,13 @@
 from collections import deque
+from typing import Deque, Optional
 
 class ATR:
     """Simple ATR with Wilder smoothing."""
     def __init__(self, period: int = 14):
         self.period = period
-        self.trs = deque(maxlen=period)
-        self.prev_close = None
-        self._atr = None
+        self.trs: Deque[float] = deque(maxlen=period)
+        self.prev_close: Optional[float] = None
+        self._atr: Optional[float] = None
 
     @staticmethod
     def _tr(o, h, l, c_prev):

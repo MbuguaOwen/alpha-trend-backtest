@@ -38,7 +38,9 @@ backtest:
 --start YYYY-MM-DDTHH:MM:SS
 --end   YYYY-MM-DDTHH:MM:SS
 --data-root PATH
+--workers INT
 --seed INT
+--dry-run
 ```
 
 **Examples**
@@ -47,6 +49,8 @@ backtest:
 python -m run_backtest --config configs/default.yaml
 python -m run_backtest --config configs/default.yaml --mode oos --oos_last_k_months 2
 python -m run_backtest --config configs/default.yaml --mode walkforward --walkforward "train=3,test=1,step=1" --start 2025-01-01T00:00:00 --end 2025-08-01T00:00:00
+# PowerShell quoting works with the same double quotes:
+python -m run_backtest --config configs/default.yaml --mode walkforward --walkforward "train=3,test=1,step=1"
 ```
 
 ## 3) Data Layer
@@ -93,36 +97,36 @@ Run header prints parsed config, bounds, symbol list, and mode.
 ## 9) Structure (deliverable)
 
 ```
+run_backtest.py
 backtest/
-  run_backtest.py
+  __init__.py
   core/
     __init__.py
     adapters.py
+    atr.py
     backtest_engine.py
+    calculate_position_size.py
     config_loader.py
     data_loader.py
     logger.py
-    walkforward.py
-    reporting.py
-    atr.py
     regime_classifier.py       # fallback stub
+    reporting.py
     signal_engine.py           # fallback stub
     trade_manager.py           # fallback stub
-    calculate_position_size.py # fallback stub
-  configs/
-    default.yaml
-  data/        # empty placeholder
-  outputs/     # created at runtime
-  tests/
-    __init__.py
-    conftest.py
-    test_atr.py
-    test_breakeven.py
-    test_tsl.py
-    test_parity_smoke.py
-    fixtures/
-      mini_prices.csv
-  README.md
+    walkforward.py
+configs/
+  default.yaml
+tests/
+  __init__.py
+  conftest.py
+  test_atr.py
+  test_breakeven.py
+  test_tsl.py
+  test_parity_smoke.py
+  test_walkforward_parser.py
+  fixtures/
+    mini_prices.csv
+README.md
 ```
 
 ## 10) How to link your live engine for **true parity**

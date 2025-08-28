@@ -50,12 +50,27 @@ class TradeManager:
         t = self.active
         if not t:
             return None
-        # Breakeven move
-        if not t.be_moved:
-            prog = self._progress(close, t)
-            if prog >= self.p.breakeven_progress:
-                t.be_moved = True
-                t.sl = t.entry_price
+        # Exit checks — SL, then TP (using existing stops before updates)
+        if t.side == "LONG":
+            if low <= t.sl:
+                t.exit_ts, t.exit_price, t.exit_reason = ts, t.sl, "SL" if not t.tsl_active else "TSL"
+            elif high >= t.tp:
+                t.exit_ts, t.exit_price, t.exit_reason = ts, t.tp, "TSL"
+        else:
+            if high >= t.sl:
+                t.exit_ts, t.exit_price, t.exit_reason = ts, t.sl, "SL" if not t.tsl_active else "TSL"
+            elif low <= t.tp:
+                t.exit_ts, t.exit_price, t.exit_reason = ts, t.tp, "TSL"
+
+        if t.exit_reason:
+            sl_dist_abs = abs(self.p.atr_mult_sl * atr)
+            if t.side == "LONG":
+                t.R = (t.exit_price - t.entry_price) / sl_dist_abs
+            else:
+                t.R = (t.entry_price - t.exit_price) / sl_dist_abs
+            done = t
+            self.active = None
+            return done
 
         # TSL stepping (simple step every tsl_step_atr_mult ATRs)
         if t.be_moved:
@@ -70,31 +85,11 @@ class TradeManager:
                     t.tsl_active = True
                     t.sl = min(t.sl, close + self.p.tsl_step_atr_mult * atr)
 
-        # Exit checks — SL, then TP
-        if t.side == "LONG":
-            if low <= t.sl:
-                t.exit_ts, t.exit_price, t.exit_reason = ts, t.sl, "SL" if not t.tsl_active else "TSL"
-            elif high >= t.tp:
-                t.exit_ts, t.exit_price, t.exit_reason = ts, t.tp, "TSL"  # take as realized via TSL/TP bucket
-        else:
-            if high >= t.sl:
-                t.exit_ts, t.exit_price, t.exit_reason = ts, t.sl, "SL" if not t.tsl_active else "TSL"
-            elif low <= t.tp:
-                t.exit_ts, t.exit_price, t.exit_reason = ts, t.tp, "TSL"
+        # Breakeven move
+        if not t.be_moved:
+            prog = self._progress(close, t)
+            if prog >= self.p.breakeven_progress:
+                t.be_moved = True
+                t.sl = t.entry_price
 
-        if t.exit_reason:
-            # Compute R
-            if t.side == "LONG":
-                risk_per_unit = t.entry_price - (t.exit_reason == "SL" and t.sl or t.sl)  # SL distance at open approximated
-                risk_per_unit = t.entry_price - (t.entry_price - (self.p.atr_mult_sl * atr))
-                if t.exit_reason == "SL" and t.be_moved:
-                    # if BE, treat as BE bucket
-                    pass
-            # Simplify R: classic definition relative to initial SL dist
-            sl_dist_abs = abs(self.p.atr_mult_sl * atr)
-            R = (t.exit_price - t.entry_price) / sl_dist_abs if t.side == "LONG" else (t.entry_price - t.exit_price) / sl_dist_abs
-            t.R = R
-            done = t
-            self.active = None
-            return done
         return None

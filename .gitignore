@@ -81,6 +81,7 @@ data/
 
 results/
 !results/.gitkeep
+outputs/
 
 # ---------------------------
 # Configs (keep main config)
