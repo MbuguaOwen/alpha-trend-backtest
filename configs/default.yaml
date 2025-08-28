@@ -1,0 +1,35 @@
+paths:
+  data_root: "data"
+  outputs_dir: "outputs"
+
+symbols: ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
+
+# --- Regime & Entry (fallback; live engine should override via adapters) ---
+regime:
+  slope:
+    n_short: 30
+    n_long: 120
+
+entry:
+  pullback_resumption:
+    ma_lookback: 20
+
+# --- Exits & Risk (per-symbol) ---
+exits:
+  BTCUSDT: { atr_period: 14, sl_mult: 15.0, tp_mult: 60.0, breakeven_progress: 0.5, tsl_step_atr_mult: 3.0 }
+  ETHUSDT: { atr_period: 14, sl_mult: 15.0, tp_mult: 60.0, breakeven_progress: 0.5, tsl_step_atr_mult: 3.0 }
+  SOLUSDT: { atr_period: 14, sl_mult: 15.0, tp_mult: 60.0, breakeven_progress: 0.5, tsl_step_atr_mult: 3.0 }
+
+risk:
+  BTCUSDT: { risk_usd: 1.0 }
+  ETHUSDT: { risk_usd: 1.0 }
+  SOLUSDT: { risk_usd: 1.0 }
+
+# --- Backtest control block (as requested) ---
+backtest:
+  mode: "walkforward"     # "insample" | "oos" | "walkforward"
+  oos_last_k_months: 2
+  walkforward:
+    train_months: 3
+    test_months: 1
+    step_months: 1
